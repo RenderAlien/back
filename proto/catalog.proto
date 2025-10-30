@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package catalog;
+
+
+service Catalog {
+
+	rpc GetAllProducts (Empty) returns (ProductsResponse);
+
+    rpc GetAllCategories (Empty) returns (CategoriesResponse);
+
+	rpc SearchProducts (SearchRequest) returns (ProductsResponse);
+
+    rpc CreateProduct (CreateProductRequest) returns (ProductResponse);
+
+    rpc CreateCategory (CreateCategoryRequest) returns (CategoryResponse);
+
+    rpc UpdateProduct (UpdateProductRequest) returns (ProductResponse);
+
+    rpc UpdateCategory (UpdateCategoryRequest) returns (CategoryResponse);
+
+    rpc GetProduct (GetProductRequest) returns (ProductResponse);
+
+    rpc GetCategory (GetCategoryRequest) returns (CategoryResponse);
+
+    rpc DeleteProduct (DeleteProductRequest) returns (DeleteResponse);
+
+    rpc DeleteCategory (DeleteCategoryRequest) returns (DeleteResponse);
+    
+}
+
+message Empty {}
+
+message SearchRequest {
+    string search_request = 1;
+}
+
+message CreateProductRequest {
+    string name = 1;
+    string desc = 2;
+    float price = 3;
+    string category_id = 4;
+    int32 quantity = 5;
+}
+
+message CreateCategoryRequest {
+    string name = 1;
+}
+
+message UpdateProductRequest {
+    string product_id = 1;
+    string name = 2;
+    string desc = 3;
+    float price = 4;
+    string category_id = 5;
+    int32 quantity = 6;
+}
+
+message UpdateCategoryRequest {
+    string category_id = 1;
+    string name = 2;
+}
+
+message GetProductRequest {
+    string product_id = 1;
+}
+
+message GetCategoryRequest {
+    string category_id = 1;
+}
+
+message DeleteProductRequest {
+    string product_id = 1;
+}
+
+message DeleteCategoryRequest {
+    string category_id = 1;
+}
+
+//
+
+message ProductResponse {
+    string product_id = 1;
+    string name = 2;
+    string desc = 3;
+    float price = 4;
+    string category_id = 5;
+    int32 quantity = 6;
+}
+
+message ProductsResponse {
+    repeated ProductResponse products = 1;
+}
+
+message CategoryResponse {
+    string category_id = 1;
+    string name = 2;
+}
+
+message CategoriesResponse {
+    repeated CategoryResponse categories = 1;
+}
+
+message DeleteResponse {
+    bool success = 1;
+}
