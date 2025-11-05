@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package order;
+
+
+service Order {
+
+	rpc GetCart (GetCartRequest) returns (GetCartResponse);
+
+    rpc GetFromCart (GetFromCartRequest) returns (Product);
+
+    rpc AddToCart (AddToCartRequest) returns (SuccessResponse);
+
+	rpc DeleteFromCart (DeleteFromCartRequest) returns (SuccessResponse);
+
+    rpc UpdateWithinCart (UpdateWithinCartRequest) returns (SuccessResponse);
+
+    rpc BuyFromCart (BuyFromCartRequest) returns (SuccessResponse);
+    // покупка от удаления отличается проверкой того, что 
+    // кол-во товаров в корзине <= кол-во таких товаров в каталоге
+    
+}
+
+message Empty {}
+
+message Product {
+    string cart_product_id = 1;
+    string product_id = 2;
+    int32 quantity = 3;
+}
+
+message GetCartRequest {
+    string uid = 1;
+}
+
+message GetFromCartRequest {
+    string uid = 1;
+    string cart_product_id = 2;
+}
+
+message AddToCartRequest {
+    string uid = 1;
+    string product_id = 2;
+    int32 quantity = 3;
+}
+
+message DeleteFromCartRequest {
+    string uid = 1;
+    string cart_product_id = 2;
+}
+
+message UpdateWithinCartRequest {
+    string uid = 1;
+    string cart_product_id = 2;
+    int32 quantity = 3; // по сути обновлять (изменять) мы можем только количество в корзине
+}
+
+message BuyFromCartRequest {
+    string uid = 1;
+    string cart_product_id = 2;
+}
+
+//
+
+message GetCartResponse {
+    repeated Product products = 1;
+}
+
+message SuccessResponse {
+    bool success = 1;
+}

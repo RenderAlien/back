@@ -6,7 +6,6 @@ import catalog_pb2_grpc
 
 import logging
 import uuid
-import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -117,9 +116,9 @@ class CatalogService(catalog_pb2_grpc.CatalogServicer):
         logger.info('Updating Category...')
 
         if request.category_id not in self.categories:
-            logger.warning("There isn't catedory with this category_id")
+            logger.warning("There isn't category with this category_id")
             context.set_code(grpc.StatusCode.NOT_FOUND)
-            context.set_details("There isn't catedory with this category_id")
+            context.set_details("There isn't category with this category_id")
             return catalog_pb2.CategoryResponse()
         
         self.categories[request.category_id]['name'] = request.name
@@ -140,10 +139,10 @@ class CatalogService(catalog_pb2_grpc.CatalogServicer):
     def GetCategory(self, request, context):
         logger.info('Getting Category...')
 
-        if request.catedory_id not in self.categories:
-            logger.warning("There isn't catedory with this catedory_id")
+        if request.category_id not in self.categories:
+            logger.warning("There isn't category with this category_id")
             context.set_code(grpc.StatusCode.NOT_FOUND)
-            context.set_details("There isn't catedory with this catedory_id")
+            context.set_details("There isn't category with this category_id")
             return catalog_pb2.CategoryResponse()
 
         return catalog_pb2.CategoryResponse(category_id=request.category_id, name=self.categories[request.category_id]['name']) 

@@ -22,7 +22,7 @@ class AuthService(auth_pb2_grpc.AuthServicer):
     def __init__(self):
         logger.info('Initializing Auth Service...')
         self.users = {}
-        # users[uid] = {first_name, second_name, email, password, adress, is_admin}
+        # users[uid] = {first_name, second_name, email, password, adress, is_admin, balance}
         self.JWT_SECRET = "your-secret-key"
         self.JWT_ALGORITHM = "HS256"
         self.JWT_EXPIRATION = 24 * 60 * 60
@@ -49,7 +49,8 @@ class AuthService(auth_pb2_grpc.AuthServicer):
                 'email': request.email,
                 'password': sha256(request.password.encode()).hexdigest(),
                 'adress': request.adress,
-                'is_admin': request.is_admin
+                'is_admin': request.is_admin,
+                'balance': 0.0
             }
             
             logger.info(f"User signed up successfully: {request.email} with ID: {uid}")
@@ -127,7 +128,7 @@ class AuthService(auth_pb2_grpc.AuthServicer):
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details('User not found')
                 logger.warning(f'User {request.uid} is not found')
-                return auth_pb2.UserProfile()
+                return auth_pb2.GetUserResponse()
             
             user = self.users[request.uid]
 
@@ -137,7 +138,8 @@ class AuthService(auth_pb2_grpc.AuthServicer):
                 second_name = user['second_name'],
                 email = user['email'],
                 adress = user['adress'],
-                is_admin = user['is_admin']
+                is_admin = user['is_admin'],
+                balance = user['balance']
             )
 
         except Exception as e:
@@ -145,6 +147,41 @@ class AuthService(auth_pb2_grpc.AuthServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f'Getting User is failed: {str(e)}')
             return auth_pb2.GetUserResponse()
+        
+    def GetUsers(self, request, context):
+        users = []
+        
+        for uid in self.users:
+            users.append(auth_pb2.GetUserResponse(
+                uid = uid,
+                first_name=self.users[uid]['first_name'],
+                second_name=self.users[uid]['second_name'],
+                email=self.users[uid]['email'],
+                adress=self.users[uid]['adress'],
+                is_admin=self.users[uid]['is_admin'],
+                balance=self.users[uid]['balance'],
+            ))
+        
+        return auth_pb2.GetUsersResponse(users=users)
+    
+    def UpdateUserBalance(self, request, context):
+        try:
+
+            if request.uid not in self.users:
+                context.set_code(grpc.StatusCode.NOT_FOUND)
+                context.set_details('User not found')
+                logger.warning(f'User {request.uid} is not found')
+                return auth_pb2.SuccessResponse(success=False)
+            
+            self.users[request.uid]['balance'] = request.balance
+
+            return auth_pb2.SuccessResponse(success=True)
+
+        except Exception as e:
+            logger.error(f'Getting User is failed: {str(e)}')
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f'Getting User is failed: {str(e)}')
+            return auth_pb2.SuccessResponse(success=False)
     
     def _generate_token(self, uid):
         payload = {

@@ -1,15 +1,15 @@
 from flask import Flask, request, jsonify
 import grpc
-import auth_pb2
-import auth_pb2_grpc
-import catalog_pb2
-import catalog_pb2_grpc
+import auth_pb2, auth_pb2_grpc
+import catalog_pb2, catalog_pb2_grpc
+import order_pb2, order_pb2_grpc
 
 app = Flask(__name__)
 
 SERVICE_CONFIG = {
     'auth': 'auth:50051',
-    'catalog': 'catalog:50052'
+    'catalog': 'catalog:50052',
+    'order': 'order:50053'
 }
 
 class AuthClient:
@@ -61,8 +61,36 @@ class AuthClient:
                 'second_name': response.second_name,
                 'email': response.email,
                 'adress': response.adress,
-                'is_admin': response.is_admin
+                'is_admin': response.is_admin,
+                'balance': response.balance
             }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def GetUsers(self):
+        try:
+            response = self.stub.GetUsers(auth_pb2.Empty())
+            return {
+                'users': [{
+                    'uid': user.uid,
+                    'first_name': user.first_name,
+                    'second_name': user.second_name,
+                    'email': user.email,
+                    'adress': user.adress,
+                    'is_admin': user.is_admin,
+                    'balance': user.balance,
+                } for user in response.users]
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+        
+    def UpdateUserBalance(self, data):
+        try:
+            response = self.stub.UpdateUserBalance(auth_pb2.UpdateUserBalanceRequest(
+                uid = data['uid'],
+                balance = data['balance']
+            ))
+            return {'success': response.success}
         except grpc.RpcError as e:
             return {'error': e.details()}
 
@@ -213,9 +241,86 @@ class CatalogClient:
         except grpc.RpcError as e:
             return {'error': e.details()}
 
+class OrderClient:
+        
+    def __init__(self):
+        self.channel = grpc.insecure_channel(SERVICE_CONFIG['order'])
+        self.stub = order_pb2_grpc.OrderStub(self.channel)
+
+    def GetCart(self, data):
+        try:
+            response = self.stub.GetCart(order_pb2.GetCartRequest(
+                uid = data['uid']
+            ))
+            return {'products': [{
+                'cart_product_id': product.cart_product_id,
+                'product_id': product.product_id,
+                'quantity': product.quantity
+                } for product in response.products]}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def GetFromCart(self, data):
+        try:
+            response = self.stub.GetFromCart(order_pb2.GetFromCartRequest(
+                uid = data['uid'],
+                cart_product_id = data['cart_product_id']
+            ))
+            return {
+                'cart_product_id': response.cart_product_id,
+                'product_id': response.product_id,
+                'quantity': response.quantity
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def AddToCart(self, data):
+        try:
+            response = self.stub.AddToCart(order_pb2.AddToCartRequest(
+                uid = data['uid'],
+                product_id = data['product_id'],
+                quantity = data['quantity']
+            ))
+            return {'success': response.success}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def DeleteFromCart(self, data):
+        try:
+            response = self.stub.DeleteFromCart(order_pb2.DeleteFromCartRequest(
+                uid = data['uid'],
+                cart_product_id = data['cart_product_id']
+            ))
+            return {'success': response.success}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def UpdateWithinCart(self, data):
+        try:
+            response = self.stub.UpdateWithinCart(order_pb2.UpdateWithinCartRequest(
+                uid = data['uid'],
+                cart_product_id = data['cart_product_id'],
+                quantity = data['quantity']
+            ))
+            return {'success': response.success}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def BuyFromCart(self, data):
+        try:
+            response = self.stub.BuyFromCart(order_pb2.BuyFromCartRequest(
+                uid = data['uid'],
+                cart_product_id = data['cart_product_id']
+            ))
+            return {'success': response.success}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+ 
+
 auth_client = AuthClient()
 catalog_client = CatalogClient()
-
+order_client = OrderClient()
+#auth
 @app.route('/api/auth/signup', methods=['POST'])
 def SignUp():
     data = request.get_json()
@@ -234,6 +339,17 @@ def GetUser():
     result = auth_client.GetUser(data)
     return jsonify(result)
 
+@app.route('/api/auth/getusers', methods=['POST'])
+def GetUsers():
+    result = auth_client.GetUsers()
+    return jsonify(result)
+
+@app.route('/api/auth/updateuserbalance', methods=['POST'])
+def UpdateUserBalance():
+    data = request.get_json()
+    result = auth_client.UpdateUserBalance(data)
+    return jsonify(result)
+#catalog
 @app.route('/api/catalog/getallproducts', methods=['POST'])
 def GetAllProducts():
     data = request.get_json()
@@ -299,6 +415,46 @@ def DeleteCategory():
     data = request.get_json()
     result = catalog_client.DeleteCategory(data)
     return jsonify(result)
+#order
+@app.route('/api/order/getcart', methods=['POST'])
+def GetCart():
+    data = request.get_json()
+    result = order_client.GetCart(data)
+    return jsonify(result)
+
+@app.route('/api/order/getfromcart', methods=['POST'])
+def GetFromCart():
+    data = request.get_json()
+    result = order_client.GetFromCart(data)
+    return jsonify(result)
+
+@app.route('/api/order/addtocart', methods=['POST'])
+def AddToCart():
+    data = request.get_json()
+    result = order_client.AddToCart(data)
+    return jsonify(result)
+
+@app.route('/api/order/deletefromcart', methods=['POST'])
+def DeleteFromCart():
+    data = request.get_json()
+    result = order_client.DeleteFromCart(data)
+    return jsonify(result)
+
+@app.route('/api/order/updatewithincart', methods=['POST'])
+def UpdateWithinCart():
+    data = request.get_json()
+    result = order_client.UpdateWithinCart(data)
+    return jsonify(result)
+
+@app.route('/api/order/buyfromcart', methods=['POST'])
+def BuyFromCart():
+    data = request.get_json()
+    result = order_client.BuyFromCart(data)
+    return jsonify(result)
+
+
+
+
 
 
 if __name__ == '__main__':

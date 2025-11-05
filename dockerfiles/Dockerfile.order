@@ -6,8 +6,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY proto/*.proto .
+
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. *.proto
 
-COPY gateway.py .
+COPY services/order.py .
 
-CMD ["python", "gateway.py"]
+CMD ["python", "order.py"]

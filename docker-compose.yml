@@ -9,7 +9,7 @@ services:
   auth:
     build:
       context: .
-      dockerfile: Dockerfile.auth
+      dockerfile: dockerfiles/Dockerfile.auth
     ports:
       - "50051:50051"
     depends_on:
@@ -18,21 +18,33 @@ services:
   catalog:
     build:
       context: .
-      dockerfile: Dockerfile.catalog
+      dockerfile: dockerfiles/Dockerfile.catalog
     ports:
       - "50052:50052"
     depends_on: 
       - consul
 
+  order:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.order
+    ports:
+      - "50053:50053"
+    depends_on: 
+      - consul
+      - auth
+      - catalog
+
   gateway:
     build:
       context: .
-      dockerfile: Dockerfile.gateway
+      dockerfile: dockerfiles/Dockerfile.gateway
     ports:
       - "8080:8080"
     depends_on:
       - auth
       - catalog
+      - order
 
   nginx:
     image: nginx:alpine
@@ -42,3 +54,14 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - gateway
+  
+  graphql-gateway:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.graphql_gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth
+      - catalog
+      - order
