@@ -6,6 +6,7 @@ services:
     ports:
       - "8500:8500"
     command: ["agent", "-dev", "-client=0.0.0.0"]
+
   auth:
     build:
       context: .
@@ -34,6 +35,17 @@ services:
       - consul
       - auth
       - catalog
+  
+  payment:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.payment
+    ports:
+      - "50054:50054"
+    depends_on: 
+      - consul
+      - order
+      - rabbitmq
 
   gateway:
     build:
@@ -65,3 +77,24 @@ services:
       - auth
       - catalog
       - order
+    
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # AMQP порт
+      - "15672:15672" # Web UI порт
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    depends_on:
+      - order
+  
+  notification:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.notification
+    ports:
+      - "50055:50055"
+    depends_on:
+      - order
+      - gateway

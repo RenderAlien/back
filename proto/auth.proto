@@ -15,8 +15,6 @@ service Auth {
 
     rpc GetUsers (Empty) returns (GetUsersResponse);
 
-    rpc UpdateUserBalance (UpdateUserBalanceRequest) returns (SuccessResponse);
-
 }
 
 message SignUpRequest {
@@ -43,11 +41,6 @@ message GetUserRequest {
 
 message Empty {}
 
-message UpdateUserBalanceRequest {
-    string uid = 1;
-    float balance = 2;
-}
-
 message AuthResponse {
     string token = 1;
     string uid = 2;
@@ -66,7 +59,6 @@ message GetUserResponse {
     string email = 4;
     string adress = 5;
     bool is_admin = 6;
-    float balance = 7;
 }
 
 message GetUsersResponse {

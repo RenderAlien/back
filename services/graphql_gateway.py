@@ -36,6 +36,27 @@ class ProductInCart:
         return GetProduct(self.product_id)
 
 @strawberry.type
+class Order:
+    order_id: str
+    uid: str
+    product_id: str
+    quantity: int
+    price: float
+    bank_details: str
+    status: str
+    @strawberry.field
+    def product(self) -> Product:
+        return GetProduct(self.product_id)
+
+
+@strawberry.type
+class Notification:
+    notification_id: str
+    uid: str
+    order_id: str
+    status: str
+
+@strawberry.type
 class User:
     uid: str
     first_name: str
@@ -43,10 +64,15 @@ class User:
     email: str
     adress: str
     is_admin: bool
-    balance: float
     @strawberry.field
     def cart(self) -> List[ProductInCart]:
         return GetCart(self.uid)
+    @strawberry.field
+    def orders(self) -> List[Order]:
+        return GetUserOrders(self.uid)
+    @strawberry.field
+    def notifications(self) -> List[Notification]:
+        return GetUserNotifications(self.uid)
 
 @strawberry.type
 class Query:
@@ -56,6 +82,9 @@ class Query:
     @strawberry.field
     def user(self, uid: str) -> User:
         return GetUser(uid)
+    @strawberry.field
+    def products(self) -> List[Product]:
+        return GetAllProducts()
 
 
 def GetUsers() -> List[User]:
@@ -68,13 +97,13 @@ def GetUsers() -> List[User]:
             second_name = user['second_name'],
             email = user['email'],
             adress = user['adress'],
-            is_admin = user['is_admin'],
-            balance = user['balance']
+            is_admin = user['is_admin']
         ))
     return users
 
 def GetUser(uid: str) -> User:
     r = requests.post('http://gateway:8080/api/auth/getuser', json={"uid": uid})
+    print(r.text)
     user = r.json()
     return User(
         uid=user['uid'],
@@ -82,8 +111,7 @@ def GetUser(uid: str) -> User:
         second_name=user['second_name'],
         email=user['email'],
         adress=user['adress'],
-        is_admin=user['is_admin'],
-        balance=user['balance']
+        is_admin=user['is_admin']
     )
 
 def GetCart(uid: str) -> List[ProductInCart]:
@@ -116,6 +144,41 @@ def GetCategory(category_id) -> Category:
         category_id=category['category_id'],
         name=category['name']
     )
+
+def GetUserOrders(uid: str) -> List[Order]:
+    r = requests.post('http://gateway:8080/api/order/getuserorders', json={"uid": uid})
+    orders = r.json()['orders']
+    return [Order(
+        order_id=order['order_id'],
+        uid=order['uid'],
+        product_id=order['product_id'],
+        quantity=order['quantity'],
+        price=order['price'],
+        bank_details=order['bank_details'],
+        status=order['status']
+    ) for order in orders]
+
+def GetAllProducts() -> List[Product]:
+    r = requests.post('http://gateway:8080/api/catalog/getallproducts', json={})
+    products = r.json()['products']
+    return [Product(
+        product_id = product['product_id'],
+        name = product['name'],
+        desc = product['desc'],
+        price = product['price'],
+        category_id = product['category_id'],
+        quantity = product['quantity']
+    ) for product in products]
+
+def GetUserNotifications(uid: str) -> List[Notification]:
+    r = requests.post('http://gateway:8080/api/notification/getusernotifications', json={"uid": uid})
+    notifications = r.json()['notifications']
+    return [Notification(
+        notification_id = notification['notification_id'],
+        uid = notification['uid'],
+        order_id = notification['order_id'],
+        status = notification['status'],
+    ) for notification in notifications]
 
 @strawberry.type
 class Mutation:
@@ -190,6 +253,22 @@ class Mutation:
             'quantity': quantity
         }
         r = requests.post('http://gateway:8080/api/order/addtocart', json=json)
+        success = r.json()
+        return Success(success=success['success'])
+    
+    @strawberry.mutation
+    def buy_from_cart(
+        self,
+        uid: str,
+        cart_product_id: str,
+        bank_details: str
+    ) -> Success:
+        json = {
+            'uid': uid,
+            'cart_product_id': cart_product_id,
+            'bank_details': bank_details
+        }
+        r = requests.post('http://gateway:8080/api/order/buyfromcart', json=json)
         success = r.json()
         return Success(success=success['success'])
 

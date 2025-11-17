@@ -3,13 +3,15 @@ import grpc
 import auth_pb2, auth_pb2_grpc
 import catalog_pb2, catalog_pb2_grpc
 import order_pb2, order_pb2_grpc
+import notification_pb2, notification_pb2_grpc
 
 app = Flask(__name__)
 
 SERVICE_CONFIG = {
     'auth': 'auth:50051',
     'catalog': 'catalog:50052',
-    'order': 'order:50053'
+    'order': 'order:50053',
+    'notification': 'notification:50055'
 }
 
 class AuthClient:
@@ -61,8 +63,7 @@ class AuthClient:
                 'second_name': response.second_name,
                 'email': response.email,
                 'adress': response.adress,
-                'is_admin': response.is_admin,
-                'balance': response.balance
+                'is_admin': response.is_admin
             }
         except grpc.RpcError as e:
             return {'error': e.details()}
@@ -77,20 +78,9 @@ class AuthClient:
                     'second_name': user.second_name,
                     'email': user.email,
                     'adress': user.adress,
-                    'is_admin': user.is_admin,
-                    'balance': user.balance,
+                    'is_admin': user.is_admin
                 } for user in response.users]
             }
-        except grpc.RpcError as e:
-            return {'error': e.details()}
-        
-    def UpdateUserBalance(self, data):
-        try:
-            response = self.stub.UpdateUserBalance(auth_pb2.UpdateUserBalanceRequest(
-                uid = data['uid'],
-                balance = data['balance']
-            ))
-            return {'success': response.success}
         except grpc.RpcError as e:
             return {'error': e.details()}
 
@@ -310,16 +300,100 @@ class OrderClient:
         try:
             response = self.stub.BuyFromCart(order_pb2.BuyFromCartRequest(
                 uid = data['uid'],
-                cart_product_id = data['cart_product_id']
+                cart_product_id = data['cart_product_id'],
+                bank_details = data['bank_details']
             ))
             return {'success': response.success}
         except grpc.RpcError as e:
             return {'error': e.details()}
+        
+    def GetUserOrders(self, data):
+        try:
+            response = self.stub.GetUserOrders(order_pb2.GetUserOrdersRequest(
+                uid = data['uid']
+            ))
+            return {
+                'orders': [{
+                    'order_id': order.order_id,
+                    'uid': order.uid,
+                    'product_id': order.product_id,
+                    'quantity': order.quantity,
+                    'price': order.price,
+                    'bank_details': order.bank_details,
+                    'status': order.status
+                } for order in response.orders]
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def GetOrder(self, data):
+        try:
+            response = self.stub.GetOrder(order_pb2.GetOrderRequest(
+                order_id = data['order_id']
+            ))
+            return {
+                    'order_id': response.order_id,
+                    'uid': response.uid,
+                    'product_id': response.product_id,
+                    'quantity': response.quantity,
+                    'price': response.price,
+                    'bank_details': response.bank_details,
+                    'status': response.status
+                }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
  
+class NotificationClient:
+    
+    def __init__(self):
+        self.channel = grpc.insecure_channel(SERVICE_CONFIG['notification'])
+        self.stub = notification_pb2_grpc.NotificationStub(self.channel)
+    
+    def GetNotification(self, data):
+        try:
+            response = self.stub.GetNotification(notification_pb2.GetNotificationRequest(
+                notification_id = data['notification_id']
+            ))
+            return {
+                'notification_id': response.notification_id,
+                'uid': response.uid,
+                'order_id': response.order_id,
+                'status': response.status
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def GetUserNotifications(self, data):
+        try:
+            response = self.stub.GetUserNotifications(notification_pb2.GetUserNotificationsRequest(
+                uid = data['uid']
+            ))
+
+            return {
+                'notifications': [{
+                    'notification_id': notification.notification_id,
+                    'uid': notification.uid,
+                    'order_id': notification.order_id,
+                    'status': notification.status
+                } for notification in response.notifications]
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+        
+    def DeleteNotification(self, data):
+        try:
+            response = self.stub.DeleteNotification(notification_pb2.DeleteNotificationRequest(
+                notification_id = data['notification_id']
+            ))
+
+            return {'success': response.success}
+        except grpc.RpcError as e:
+            return {'error': e.details()}
 
 auth_client = AuthClient()
 catalog_client = CatalogClient()
 order_client = OrderClient()
+notification_client = NotificationClient()
 #auth
 @app.route('/api/auth/signup', methods=['POST'])
 def SignUp():
@@ -344,11 +418,6 @@ def GetUsers():
     result = auth_client.GetUsers()
     return jsonify(result)
 
-@app.route('/api/auth/updateuserbalance', methods=['POST'])
-def UpdateUserBalance():
-    data = request.get_json()
-    result = auth_client.UpdateUserBalance(data)
-    return jsonify(result)
 #catalog
 @app.route('/api/catalog/getallproducts', methods=['POST'])
 def GetAllProducts():
@@ -415,6 +484,7 @@ def DeleteCategory():
     data = request.get_json()
     result = catalog_client.DeleteCategory(data)
     return jsonify(result)
+
 #order
 @app.route('/api/order/getcart', methods=['POST'])
 def GetCart():
@@ -452,9 +522,36 @@ def BuyFromCart():
     result = order_client.BuyFromCart(data)
     return jsonify(result)
 
+@app.route('/api/order/getuserorders', methods=['POST'])
+def GetUserOrders():
+    data = request.get_json()
+    result = order_client.GetUserOrders(data)
+    return jsonify(result)
 
+@app.route('/api/order/getorder', methods=['POST'])
+def GetOrder():
+    data = request.get_json()
+    result = order_client.GetOrder(data)
+    return jsonify(result)
 
+#notification
+@app.route('/api/notification/getnotification', methods=['POST'])
+def GetNotification():
+    data = request.get_json()
+    result = notification_client.GetNotification(data)
+    return jsonify(result)
 
+@app.route('/api/notification/getusernotifications', methods=['POST'])
+def GetUserNotifications():
+    data = request.get_json()
+    result = notification_client.GetUserNotifications(data)
+    return jsonify(result)
+
+@app.route('/api/notification/deletenotification', methods=['POST'])
+def DeleteNotification():
+    data = request.get_json()
+    result = notification_client.DeleteNotification(data)
+    return jsonify(result)
 
 
 if __name__ == '__main__':
