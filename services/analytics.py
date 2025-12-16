@@ -53,14 +53,15 @@ def main():
                 order = data['order']
                 order_id = order['order_id']
                 status = order['status']
+                orders[order_id] = status
                 logger.info(f"Order {order['order_id']} created.")
 
             elif data['action'] == 'updated':
                 order_id = msg.key().decode()
                 status = data['status']
+                orders[order_id] = status
                 logger.info(f"Order {order['order_id']} status updated: {status}")
 
-            orders[order_id] = status
             statuses = analysis()
             logger.info(f"\n\n{statuses['in processing']} orders in processing.\n{statuses['confirmed']} confirmed orders.\n{statuses['failed']} failed orders.\n\n")
                 

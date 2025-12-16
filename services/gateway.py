@@ -4,6 +4,7 @@ import auth_pb2, auth_pb2_grpc
 import catalog_pb2, catalog_pb2_grpc
 import order_pb2, order_pb2_grpc
 import notification_pb2, notification_pb2_grpc
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -80,6 +81,30 @@ class AuthClient:
                     'adress': user.adress,
                     'is_admin': user.is_admin
                 } for user in response.users]
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def SignOut(self, data):
+        try:
+            response = self.stub.SignOut(auth_pb2.Token(
+                token = data['token']
+            ))
+            return {
+                'success': response.success
+            }
+        except grpc.RpcError as e:
+            return {'error': e.details()}
+    
+    def ValidateToken(self, data):
+        try:
+            response = self.stub.ValidateToken(auth_pb2.ValidateTokenRequest(
+                token = data['token']
+            ))
+            return {
+                'valid': response.valid,
+                'uid': response.uid,
+                'is_admin': response.is_admin
             }
         except grpc.RpcError as e:
             return {'error': e.details()}
@@ -403,6 +428,36 @@ auth_client = AuthClient()
 catalog_client = CatalogClient()
 order_client = OrderClient()
 notification_client = NotificationClient()
+
+
+
+def jwt_user(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get('Authorization')[7:]
+
+        validation = auth_client.ValidateToken({'token': token})
+
+        if 'valid' not in validation: return jsonify({'error': 'auth service error'}) 
+        if not validation['valid']: return jsonify({'error': 'token is not valid'})
+        return func(*args, **kwargs)
+    return wrapper
+
+def jwt_admin(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get('Authorization')[7:]
+        
+        validation = auth_client.ValidateToken({'token': token})
+
+        if 'valid' not in validation: return jsonify({'error': 'auth service error'}) 
+        if not validation['valid']: return jsonify({'error': 'token is not valid'})
+        if not validation['is_admin']: return jsonify({'error': 'you have no permission'})
+        return func(*args, **kwargs)
+    return wrapper
+
+
+
 #auth
 @app.route('/api/auth/signup', methods=['POST'])
 def SignUp():
@@ -417,78 +472,97 @@ def SignIn():
     return jsonify(result)
 
 @app.route('/api/auth/getuser', methods=['POST'])
+@jwt_user
 def GetUser():
     data = request.get_json()
     result = auth_client.GetUser(data)
     return jsonify(result)
 
 @app.route('/api/auth/getusers', methods=['POST'])
+@jwt_admin
 def GetUsers():
     result = auth_client.GetUsers()
     return jsonify(result)
 
+@app.route('/api/auth/signout', methods=['POST'])
+@jwt_user
+def SignOut():
+    data = request.get_json()
+    result = auth_client.SignOut(data)
+    return jsonify(result)
 #catalog
 @app.route('/api/catalog/getallproducts', methods=['POST'])
+@jwt_user
 def GetAllProducts():
     data = request.get_json()
     result = catalog_client.GetAllProducts(data)
     return jsonify(result)
 
 @app.route('/api/catalog/getallcategories', methods=['POST'])
+@jwt_user
 def GetAllCategories():
     data = request.get_json()
     result = catalog_client.GetAllCategories(data)
     return jsonify(result)
 
 @app.route('/api/catalog/searchproducts', methods=['POST'])
+@jwt_user
 def SearchProducts():
     data = request.get_json()
     result = catalog_client.SearchProducts(data)
     return jsonify(result)
 
 @app.route('/api/catalog/createproduct', methods=['POST'])
+@jwt_admin
 def CreateProduct():
     data = request.get_json()
     result = catalog_client.CreateProduct(data)
     return jsonify(result)
 
 @app.route('/api/catalog/createcategory', methods=['POST'])
+@jwt_admin
 def CreateCategory():
     data = request.get_json()
     result = catalog_client.CreateCategory(data)
     return jsonify(result)
 
 @app.route('/api/catalog/updateproduct', methods=['POST'])
+@jwt_admin
 def UpdateProduct():
     data = request.get_json()
     result = catalog_client.UpdateProduct(data)
     return jsonify(result)
 
 @app.route('/api/catalog/updatecategory', methods=['POST'])
+@jwt_admin
 def UpdateCategory():
     data = request.get_json()
     result = catalog_client.UpdateCategory(data)
     return jsonify(result)
 
 @app.route('/api/catalog/getproduct', methods=['POST'])
+@jwt_user
 def GetProduct():
     data = request.get_json()
     result = catalog_client.GetProduct(data)
     return jsonify(result)
 
 @app.route('/api/catalog/getcategory', methods=['POST'])
+@jwt_user
 def GetCategory():
     data = request.get_json()
     result = catalog_client.GetCategory(data)
     return jsonify(result)
 
 @app.route('/api/catalog/deleteproduct', methods=['POST'])
+@jwt_admin
 def DeleteProduct():
     data = request.get_json()
     result = catalog_client.DeleteProduct(data)
     return jsonify(result)
 
 @app.route('/api/catalog/deletecategory', methods=['POST'])
+@jwt_admin
 def DeleteCategory():
     data = request.get_json()
     result = catalog_client.DeleteCategory(data)
@@ -496,54 +570,63 @@ def DeleteCategory():
 
 #order
 @app.route('/api/order/getcart', methods=['POST'])
+@jwt_user
 def GetCart():
     data = request.get_json()
     result = order_client.GetCart(data)
     return jsonify(result)
 
 @app.route('/api/order/getfromcart', methods=['POST'])
+@jwt_user
 def GetFromCart():
     data = request.get_json()
     result = order_client.GetFromCart(data)
     return jsonify(result)
 
 @app.route('/api/order/addtocart', methods=['POST'])
+@jwt_user
 def AddToCart():
     data = request.get_json()
     result = order_client.AddToCart(data)
     return jsonify(result)
 
 @app.route('/api/order/deletefromcart', methods=['POST'])
+@jwt_user
 def DeleteFromCart():
     data = request.get_json()
     result = order_client.DeleteFromCart(data)
     return jsonify(result)
 
 @app.route('/api/order/updatewithincart', methods=['POST'])
+@jwt_user
 def UpdateWithinCart():
     data = request.get_json()
     result = order_client.UpdateWithinCart(data)
     return jsonify(result)
 
 @app.route('/api/order/buyfromcart', methods=['POST'])
+@jwt_user
 def BuyFromCart():
     data = request.get_json()
     result = order_client.BuyFromCart(data)
     return jsonify(result)
 
 @app.route('/api/order/getuserorders', methods=['POST'])
+@jwt_user
 def GetUserOrders():
     data = request.get_json()
     result = order_client.GetUserOrders(data)
     return jsonify(result)
 
 @app.route('/api/order/getorder', methods=['POST'])
+@jwt_user
 def GetOrder():
     data = request.get_json()
     result = order_client.GetOrder(data)
     return jsonify(result)
 
 @app.route('/api/order/rebuildorders', methods=['POST'])
+@jwt_admin
 def RebuildOrders():
     data = request.get_json()
     result = order_client.RebuildOrders(data)
@@ -551,18 +634,21 @@ def RebuildOrders():
 
 #notification
 @app.route('/api/notification/getnotification', methods=['POST'])
+@jwt_user
 def GetNotification():
     data = request.get_json()
     result = notification_client.GetNotification(data)
     return jsonify(result)
 
 @app.route('/api/notification/getusernotifications', methods=['POST'])
+@jwt_user
 def GetUserNotifications():
     data = request.get_json()
     result = notification_client.GetUserNotifications(data)
     return jsonify(result)
 
 @app.route('/api/notification/deletenotification', methods=['POST'])
+@jwt_user
 def DeleteNotification():
     data = request.get_json()
     result = notification_client.DeleteNotification(data)

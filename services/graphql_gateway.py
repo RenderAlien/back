@@ -275,7 +275,14 @@ class Mutation:
     @strawberry.mutation
     def rebuild_orders(self) -> Success:
         r = requests.post('http://gateway:8080/api/order/rebuildorders', json={}).json()
-        print(r)
+        return Success(success=r['success'])
+    
+    @strawberry.mutation
+    def sign_out(
+        self,
+        token: str
+    ) -> Success:
+        r = requests.post('http://gateway:8080/api/auth/signout', json={'token': token}).json()
         return Success(success=r['success'])
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

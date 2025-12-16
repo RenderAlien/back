@@ -26,6 +26,7 @@ class AuthService(auth_pb2_grpc.AuthServicer):
         self.JWT_SECRET = "your-secret-key"
         self.JWT_ALGORITHM = "HS256"
         self.JWT_EXPIRATION = 24 * 60 * 60
+        self.JWT_BLACKLIST = set()
         
         # Cart service client
         #self.cart_channel = grpc.insecure_channel('cart-service:50053')
@@ -103,10 +104,14 @@ class AuthService(auth_pb2_grpc.AuthServicer):
     def ValidateToken(self, request, context):
         try:
             logger.info(f"Getting User...")
+
+            if request.token in self.JWT_BLACKLIST: return auth_pb2.ValidateTokenResponse(valid=False)
+
             payload = jwt.decode(request.token, self.JWT_SECRET, algorithms=[self.JWT_ALGORITHM])
             return auth_pb2.ValidateTokenResponse(
                 valid = True,
-                uid = payload['user_id']
+                uid = payload['user_id'],
+                is_admin = self.users[payload['user_id']]['is_admin']
             )
         
         except jwt.ExpiredSignatureError as e:
@@ -118,7 +123,7 @@ class AuthService(auth_pb2_grpc.AuthServicer):
             context.set_details('Invalid token')
             logger.error(f'Validating Token is failed: {str(e)}')
         
-        return auth_pb2.ValidateResponse(valid=False)
+        return auth_pb2.ValidateTokenResponse(valid=False)
     
     def GetUser(self, request, context):
         try:
@@ -160,6 +165,35 @@ class AuthService(auth_pb2_grpc.AuthServicer):
             ))
         
         return auth_pb2.GetUsersResponse(users=users)
+    
+    def SignOut(self, request, context):
+        try:
+            logger.info("Signing out...")
+            if request.token in self.JWT_BLACKLIST:
+                logger.info("This user is already signed out")
+                return auth_pb2.SuccessResponse(success=False)
+            
+            payload = jwt.decode(request.token, self.JWT_SECRET, algorithms=[self.JWT_ALGORITHM])
+            if payload['user_id'] not in self.users:
+                logger.info("This user does not exist")
+                return auth_pb2.SuccessResponse(success=False)
+            self.JWT_BLACKLIST.add(request.token)
+            return auth_pb2.SuccessResponse(success=True)
+        except Exception as e:
+            logger.error(f'Signing out is failed: {str(e)}')
+            return auth_pb2.SuccessResponse(success=False)
+    
+    def _check_token(self, token, admin):
+        try:
+            if token in self.JWT_BLACKLIST: return False
+
+            payload = jwt.decode(token, self.JWT_SECRET, algorithms=[self.JWT_ALGORITHM])
+
+            if admin:
+                return self.users[payload['user_id']]['is_admin']
+            return True
+        except Exception as e:
+            return False
     
     def _generate_token(self, uid):
         payload = {

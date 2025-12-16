@@ -15,6 +15,8 @@ service Auth {
 
     rpc GetUsers (Empty) returns (GetUsersResponse);
 
+    rpc SignOut (Token) returns (SuccessResponse);
+
 }
 
 message SignUpRequest {
@@ -50,6 +52,7 @@ message AuthResponse {
 message ValidateTokenResponse {
     bool valid = 1;
     string uid = 2;
+    bool is_admin = 3;
 }
 
 message GetUserResponse {
@@ -67,4 +70,8 @@ message GetUsersResponse {
 
 message SuccessResponse {
     bool success = 1;
+}
+
+message Token {
+    string token = 1;
 }
